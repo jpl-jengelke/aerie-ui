@@ -22,6 +22,7 @@
   import { getActivityDirectiveStartTimeMs, getDoyTimeFromInterval, getUnixEpochTime } from '../../utilities/time';
   import { showFailureToast, showSuccessToast } from '../../utilities/toast';
   import { tooltip } from '../../utilities/tooltip';
+  import ToggleableIconButton from '../ui/ToggleableIconButton.svelte';
   import TimelineViewDirectiveControls from './TimelineViewDirectiveControls.svelte';
 
   export let maxTimeRange: TimeRange = { end: 0, start: 0 };
@@ -31,6 +32,7 @@
   export let viewTimeRange: TimeRange = { end: 0, start: 0 };
 
   let allDirectivesVisible: boolean = true;
+  let followSelection: boolean = false;
 
   const dispatch = createEventDispatcher();
 
@@ -47,6 +49,9 @@
     if (allSame) {
       allDirectivesVisible = rowVisibilities[0];
     }
+  }
+  $: if (followSelection && ($selectedActivityDirective || $selectedSpan)) {
+    scrollIfOffscreen();
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -144,7 +149,7 @@
     }
   }
 
-  function onScrollToSelection() {
+  function getSelectionTime() {
     let time: number = NaN;
     if ($selectedActivityDirective && $plan) {
       time = getActivityDirectiveStartTimeMs(
@@ -160,7 +165,25 @@
         getDoyTimeFromInterval($simulationDataset?.simulation_start_time, $selectedSpan.start_offset),
       );
     }
+    return time;
+  }
 
+  function onToggleFollowSelection() {
+    followSelection = !followSelection;
+    if (followSelection) {
+      scrollIfOffscreen();
+    }
+  }
+
+  function scrollIfOffscreen() {
+    const time = getSelectionTime();
+    if (time < viewTimeRange.start || time > viewTimeRange.end) {
+      scrollToSelection();
+    }
+  }
+
+  function scrollToSelection() {
+    const time = getSelectionTime();
     if (!isNaN(time) && (time < viewTimeRange.start || time > viewTimeRange.end)) {
       const start = Math.max(maxTimeRange.start, time - viewDuration / 2);
       const end = Math.min(maxTimeRange.end, time + viewDuration / 2);
@@ -240,7 +263,7 @@
 <button
   class="st-button icon"
   disabled={!$selectedActivityDirective && !$selectedSpan}
-  on:click={onScrollToSelection}
+  on:click={scrollToSelection}
   use:tooltip={{
     content: `Scroll timeline to ${$selectedActivityDirective?.name ?? $selectedSpan?.type ?? 'selection'}`,
     placement: 'bottom',
@@ -248,6 +271,21 @@
 >
   <FollowIcon />
 </button>
+
+<ToggleableIconButton
+  isOn={followSelection}
+  offTooltipContent="Toggle on follow selection"
+  onTooltipContent="Toggle off follow selection"
+  tooltipPlacement="bottom"
+  useBorder={true}
+  on:toggle={onToggleFollowSelection}
+>
+  <FollowIcon />
+  <div slot="offIcon" class="off-icon">
+    <FollowIcon />
+    <div class="toggle-slash" />
+  </div>
+</ToggleableIconButton>
 
 <style>
   .st-button {
@@ -257,5 +295,22 @@
 
   .st-button:hover :global(svg) {
     color: var(--st-gray-80);
+  }
+
+  .off-icon {
+    align-items: center;
+    display: inline-flex;
+    position: relative;
+  }
+
+  .toggle-slash {
+    background-color: var(--st-gray-70);
+    bottom: 6px;
+    height: 2px;
+    left: -3px;
+    outline: 2px solid #fff;
+    position: absolute;
+    transform: rotate(-35deg);
+    width: 20px;
   }
 </style>
