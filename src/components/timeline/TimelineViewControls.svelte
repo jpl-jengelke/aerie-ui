@@ -242,7 +242,7 @@
   disabled={!$selectedActivityDirective && !$selectedSpan}
   on:click={onScrollToSelection}
   use:tooltip={{
-    content: `Scroll timeline to ${!$selectedActivityDirective?.name ?? $selectedSpan?.type ?? 'selection'}`,
+    content: `Scroll timeline to ${$selectedActivityDirective?.name ?? $selectedSpan?.type ?? 'selection'}`,
     placement: 'bottom',
   }}
 >
