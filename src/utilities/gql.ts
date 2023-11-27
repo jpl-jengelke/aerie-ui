@@ -2085,7 +2085,6 @@ const gql = {
     subscription SubViews {
       views: view {
         created_at
-        definition
         id
         name
         owner
