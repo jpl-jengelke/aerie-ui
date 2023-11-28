@@ -65,7 +65,6 @@
 
   $: canvasHeightDpr = drawHeight * dpr;
   $: canvasWidthDpr = drawWidth * dpr;
-  // If the user wants to see the stateLineChart, split this layer in half horizontally.
   $: if (
     canvasHeightDpr &&
     canvasWidthDpr &&
