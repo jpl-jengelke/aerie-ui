@@ -2,7 +2,7 @@
 
 <script lang="ts">
   import { quadtree as d3Quadtree, type Quadtree } from 'd3-quadtree';
-  import type { ScaleTime } from 'd3-scale';
+  import type { ScaleLinear, ScaleTime } from 'd3-scale';
   import { curveLinear, line as d3Line } from 'd3-shape';
   import { createEventDispatcher, onMount, tick } from 'svelte';
   import type { Resource } from '../../types/simulation';
@@ -79,7 +79,7 @@
 
       const [yAxis] = yAxes.filter(axis => yAxisId === axis.id);
       const domain = yAxis?.scaleDomain || [];
-      const yScale = getYScale(domain, drawHeight);
+      const yScale = getYScale(domain, drawHeight) as ScaleLinear<number, number>;
 
       quadtree = d3Quadtree<QuadtreePoint>()
         .x(p => p.x)
