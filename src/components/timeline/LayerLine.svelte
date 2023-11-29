@@ -2,12 +2,13 @@
 
 <script lang="ts">
   import { quadtree as d3Quadtree, type Quadtree } from 'd3-quadtree';
-  import type { ScaleLinear, ScaleTime } from 'd3-scale';
+  import { scalePoint, type ScaleLinear, type ScaleTime } from 'd3-scale';
   import { curveLinear, line as d3Line } from 'd3-shape';
   import { createEventDispatcher, onMount, tick } from 'svelte';
   import type { Resource } from '../../types/simulation';
   import type { Axis, LinePoint, QuadtreePoint, ResourceLayerFilter, TimeRange } from '../../types/timeline';
-  import { getYScale, searchQuadtreePoint } from '../../utilities/timeline';
+  import { filterEmpty } from '../../utilities/generic';
+  import { CANVAS_PADDING_Y, getYScale, searchQuadtreePoint } from '../../utilities/timeline';
 
   export let contextmenu: MouseEvent | undefined;
   export let dpr: number = 1;
@@ -22,6 +23,7 @@
   export let mouseout: MouseEvent | undefined;
   export let pointRadius: number = 2;
   export let resources: Resource[] = [];
+  export let showStateLineChart: boolean = false;
   export let viewTimeRange: TimeRange = { end: 0, start: 0 };
   export let xScaleView: ScaleTime<number, number> | null = null;
   export let yAxes: Axis[] = [];
@@ -33,6 +35,7 @@
   let ctx: CanvasRenderingContext2D | null;
   let mounted: boolean = false;
   let quadtree: Quadtree<QuadtreePoint>;
+  let scaleDomain: Set<string> = new Set();
   let visiblePointsById: Record<number, LinePoint> = {};
 
   $: canvasHeightDpr = drawHeight * dpr;
@@ -45,10 +48,11 @@
     dpr &&
     // TODO swap filter out for resources which are recomputed when the view changes (i.e. filter changes)
     filter &&
-    lineColor &&
+    lineColor !== undefined &&
     typeof lineWidth === 'number' &&
     typeof pointRadius === 'number' &&
     mounted &&
+    showStateLineChart !== undefined &&
     points &&
     viewTimeRange &&
     xScaleView &&
@@ -78,8 +82,6 @@
       ctx.clearRect(0, 0, drawWidth, drawHeight);
 
       const [yAxis] = yAxes.filter(axis => yAxisId === axis.id);
-      const domain = yAxis?.scaleDomain || [];
-      const yScale = getYScale(domain, drawHeight) as ScaleLinear<number, number>;
 
       quadtree = d3Quadtree<QuadtreePoint>()
         .x(p => p.x)
@@ -88,35 +90,68 @@
           [0, 0],
           [drawWidth, drawHeight],
         ]);
-      visiblePointsById = {};
 
       const fill = lineColor;
       ctx.fillStyle = fill;
       ctx.lineWidth = lineWidth;
       ctx.strokeStyle = fill;
 
-      const line = d3Line<LinePoint>()
-        .x(d => (xScaleView as ScaleTime<number, number, never>)(d.x))
-        .y(d => yScale(d.y))
-        .defined(d => d.y !== null) // Skip any gaps in resource data instead of interpolating
-        .curve(curveLinear);
-      ctx.beginPath();
-      line.context(ctx)(points);
-      ctx.stroke();
-      ctx.closePath();
+      if (showStateLineChart) {
+        const domain = Array.from(scaleDomain);
+        const yScale = scalePoint()
+          .domain(domain.filter(filterEmpty))
+          .range([drawHeight - CANVAS_PADDING_Y, CANVAS_PADDING_Y]);
 
-      for (const point of points) {
-        const { id, radius } = point;
+        const line = d3Line<LinePoint>()
+          .x(d => (xScaleView as ScaleTime<number, number, never>)(d.x))
+          .y(d => yScale(d.y.toString()) as number)
+          .defined(d => d.y !== null) // Skip any gaps in resource data instead of interpolating
+          .curve(curveLinear);
+        ctx.beginPath();
+        line.context(ctx)(points);
+        ctx.stroke();
+        ctx.closePath();
 
-        if (point.x >= viewTimeRange.start && point.x <= viewTimeRange.end) {
-          const x = (xScaleView as ScaleTime<number, number, never>)(point.x);
-          const y = yScale(point.y);
-          quadtree.add({ id, x, y });
-          visiblePointsById[id] = point;
+        for (const point of points) {
+          const { id, radius } = point;
 
-          const circle = new Path2D();
-          circle.arc(x, y, radius, 0, 2 * Math.PI);
-          ctx.fill(circle);
+          if (point.x >= viewTimeRange.start && point.x <= viewTimeRange.end) {
+            const x = (xScaleView as ScaleTime<number, number, never>)(point.x);
+            const y = yScale(point.y.toString()) as number;
+            quadtree.add({ id, x, y });
+
+            const circle = new Path2D();
+            circle.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fill(circle);
+          }
+        }
+      } else {
+        const domain = yAxis?.scaleDomain || [];
+        const yScale = getYScale(domain, drawHeight) as ScaleLinear<number, number>;
+
+        const line = d3Line<LinePoint>()
+          .x(d => (xScaleView as ScaleTime<number, number, never>)(d.x))
+          .y(d => yScale(d.y) as number)
+          .defined(d => d.y !== null) // Skip any gaps in resource data instead of interpolating
+          .curve(curveLinear);
+        ctx.beginPath();
+        line.context(ctx)(points);
+        ctx.stroke();
+        ctx.closePath();
+
+        for (const point of points) {
+          const { id, radius } = point;
+
+          if (point.x >= viewTimeRange.start && point.x <= viewTimeRange.end) {
+            const x = (xScaleView as ScaleTime<number, number, never>)(point.x);
+            const y = yScale(point.y);
+            quadtree.add({ id, x, y });
+            visiblePointsById[id] = point;
+
+            const circle = new Path2D();
+            circle.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fill(circle);
+          }
         }
       }
     }
@@ -176,6 +211,21 @@
             id: id++,
             name,
             radius,
+            type: 'line',
+            x,
+            y,
+          });
+        }
+      } else if (schema.type === 'string') {
+        for (let i = 0; i < values.length; ++i) {
+          const value = values[i];
+          const { x } = value;
+          const y = value.y as number;
+          scaleDomain.add(value.y as string);
+          points.push({
+            id: id++,
+            name,
+            radius: radius,
             type: 'line',
             x,
             y,
