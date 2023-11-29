@@ -395,9 +395,7 @@
                 {mousemove}
                 {mouseout}
                 resources={resourcesByViewLayerId[layer.id] ?? []}
-                {viewTimeRange}
                 {xScaleView}
-                yAxes={yAxesWithScaleDomains}
                 on:mouseOver={onMouseOver}
                 on:contextMenu
               />
