@@ -504,7 +504,7 @@ export function createTimelineXRangeLayer(
     id,
     name: '',
     opacity: 0.8,
-    showStateLineChart: false,
+    showAsLinePlot: false,
     yAxisId,
     ...args,
   };

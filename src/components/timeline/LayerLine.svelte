@@ -23,7 +23,7 @@
   export let mouseout: MouseEvent | undefined;
   export let pointRadius: number = 2;
   export let resources: Resource[] = [];
-  export let showStateLineChart: boolean = false;
+  export let showAsLinePlot: boolean = false;
   export let viewTimeRange: TimeRange = { end: 0, start: 0 };
   export let xScaleView: ScaleTime<number, number> | null = null;
   export let yAxes: Axis[] = [];
@@ -52,7 +52,7 @@
     typeof lineWidth === 'number' &&
     typeof pointRadius === 'number' &&
     mounted &&
-    showStateLineChart !== undefined &&
+    showAsLinePlot !== undefined &&
     points &&
     viewTimeRange &&
     xScaleView &&
@@ -96,7 +96,7 @@
       ctx.lineWidth = lineWidth;
       ctx.strokeStyle = fill;
 
-      if (showStateLineChart) {
+      if (showAsLinePlot) {
         const domain = Array.from(scaleDomain);
         const yScale = scalePoint()
           .domain(domain.filter(filterEmpty))
@@ -119,6 +119,7 @@
             const x = (xScaleView as ScaleTime<number, number, never>)(point.x);
             const y = yScale(point.y.toString()) as number;
             quadtree.add({ id, x, y });
+            visiblePointsById[id] = point;
 
             const circle = new Path2D();
             circle.arc(x, y, radius, 0, 2 * Math.PI);
@@ -216,7 +217,7 @@
             y,
           });
         }
-      } else if (schema.type === 'string') {
+      } else if (schema.type === 'string' || schema.type === 'variant') {
         for (let i = 0; i < values.length; ++i) {
           const value = values[i];
           const { x } = value;
