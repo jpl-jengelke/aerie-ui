@@ -3366,6 +3366,42 @@ const effects = {
     }
   },
 
+  async loginSSO(ssoToken: string): Promise<ReqAuthResponse> {
+    try {
+      const data = await reqGateway<ReqAuthResponse>(
+        '/auth/loginSSO',
+        'POST',
+        JSON.stringify({ ssoToken }),
+        null,
+        false,
+      );
+      return data;
+    } catch (e) {
+      catchError(e as Error);
+      return {
+        message: 'An unexpected error occurred',
+        success: false,
+        token: null,
+      };
+    }
+  },
+
+  async validateSSO(ssoToken: string): Promise<boolean> {
+    try {
+      const data = await reqGateway<boolean>(
+        '/auth/validateSSO',
+        'POST',
+        JSON.stringify({ ssoToken }),
+        null,
+        false,
+      );
+      return data;
+    } catch (e) {
+      catchError(e as Error);
+      return false;
+    }
+  },
+
   async planMergeBegin(
     merge_request_id: number,
     sourcePlan: PlanForMerging,
